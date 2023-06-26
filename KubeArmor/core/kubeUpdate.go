@@ -702,11 +702,45 @@ func (dm *KubeArmorDaemon) WatchK8sPods() {
 					updateAppArmor := false
 
 					if deploymentName, ok := pod.Metadata["deploymentName"]; ok {
-						deploy, err := K8s.K8sClient.AppsV1().Deployments(pod.Metadata["namespaceName"]).Get(context.Background(), deploymentName, metav1.GetOptions{})
-						if err == nil {
-							for _, c := range deploy.Spec.Template.Spec.Containers {
-								containers = append(containers, c.Name)
+						if ownerRef != nil {
+							if ownerRef.Kind == "StatefulSet" {
+								statefulset, err := K8s.K8sClient.AppsV1().StatefulSets(pod.Metadata["namespaceName"]).Get(context.Background(), ownerRef.Name, metav1.GetOptions{})
+								if err == nil {
+									for _, c := range statefulset.Spec.Template.Spec.Containers {
+										containers = append(containers, c.Name)
+									}
+								}
+							} else if ownerRef.Kind == "ReplicaSet" {
+								replica, err := K8s.K8sClient.AppsV1().ReplicaSets(pod.Metadata["namespaceName"]).Get(context.Background(), deploymentName, metav1.GetOptions{})
+								if err == nil {
+									for _, c := range replica.Spec.Template.Spec.Containers {
+										containers = append(containers, c.Name)
+									}
+								}
+							} else if ownerRef.Kind == "DaemonSet" {
+								daemon, err := K8s.K8sClient.AppsV1().DaemonSets(pod.Metadata["namespaceName"]).Get(context.Background(), deploymentName, metav1.GetOptions{})
+								if err == nil {
+									for _, c := range daemon.Spec.Template.Spec.Containers {
+										containers = append(containers, c.Name)
+									}
+								}
+
+							} else {
+								deploy, err := K8s.K8sClient.AppsV1().Deployments(pod.Metadata["namespaceName"]).Get(context.Background(), deploymentName, metav1.GetOptions{})
+								if err == nil {
+									for _, c := range deploy.Spec.Template.Spec.Containers {
+										containers = append(containers, c.Name)
+									}
+								}
 							}
+						} else {
+							deploy, err := K8s.K8sClient.AppsV1().Deployments(pod.Metadata["namespaceName"]).Get(context.Background(), deploymentName, metav1.GetOptions{})
+							if err == nil {
+								for _, c := range deploy.Spec.Template.Spec.Containers {
+									containers = append(containers, c.Name)
+								}
+							}
+
 						}
 					}
 
@@ -736,7 +770,7 @@ func (dm *KubeArmorDaemon) WatchK8sPods() {
 						if updateAppArmor && pod.Annotations["kubearmor-policy"] == "enabled" {
 							if deploymentName, ok := pod.Metadata["deploymentName"]; ok {
 								// patch the deployment with apparmor annotations
-								if err := K8s.PatchDeploymentWithAppArmorAnnotations(pod.Metadata["namespaceName"], deploymentName, appArmorAnnotations); err != nil {
+								if err := K8s.PatchResourceWithAppArmorAnnotations(pod.Metadata["namespaceName"], deploymentName, appArmorAnnotations, ownerRef.Kind); err != nil {
 									dm.Logger.Errf("Failed to update AppArmor Annotations (%s/%s/%s, %s)", pod.Metadata["namespaceName"], deploymentName, pod.Metadata["podName"], err.Error())
 								} else {
 									dm.Logger.Printf("Patched AppArmor Annotations (%s/%s/%s)", pod.Metadata["namespaceName"], deploymentName, pod.Metadata["podName"])
@@ -756,7 +790,7 @@ func (dm *KubeArmorDaemon) WatchK8sPods() {
 								if updateAppArmor && prevPolicyEnabled != "enabled" && pod.Annotations["kubearmor-policy"] == "enabled" {
 									if deploymentName, ok := pod.Metadata["deploymentName"]; ok {
 										// patch the deployment with apparmor annotations
-										if err := K8s.PatchDeploymentWithAppArmorAnnotations(pod.Metadata["namespaceName"], deploymentName, appArmorAnnotations); err != nil {
+										if err := K8s.PatchResourceWithAppArmorAnnotations(pod.Metadata["namespaceName"], deploymentName, appArmorAnnotations, ownerRef.Kind); err != nil {
 											dm.Logger.Errf("Failed to update AppArmor Annotations (%s/%s/%s, %s)", pod.Metadata["namespaceName"], deploymentName, pod.Metadata["podName"], err.Error())
 										} else {
 											dm.Logger.Printf("Patched AppArmor Annotations (%s/%s/%s)", pod.Metadata["namespaceName"], deploymentName, pod.Metadata["podName"])

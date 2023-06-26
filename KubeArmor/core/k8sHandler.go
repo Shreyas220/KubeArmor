@@ -224,7 +224,7 @@ func (kh *K8sHandler) DoRequest(cmd string, data interface{}, path string) ([]by
 // ================ //
 
 // PatchDeploymentWithAppArmorAnnotations Function
-func (kh *K8sHandler) PatchDeploymentWithAppArmorAnnotations(namespaceName, deploymentName string, appArmorAnnotations map[string]string) error {
+func (kh *K8sHandler) PatchResourceWithAppArmorAnnotations(namespaceName, deploymentName string, appArmorAnnotations map[string]string, kind string) error {
 	if !kl.IsK8sEnv() { // not Kubernetes
 		return nil
 	}
@@ -247,6 +247,47 @@ func (kh *K8sHandler) PatchDeploymentWithAppArmorAnnotations(namespaceName, depl
 	}
 
 	spec = spec + `}}}}}`
+
+	if kind == "StatefulSet" {
+		_, err := kh.K8sClient.AppsV1().StatefulSets(namespaceName).Patch(context.Background(), deploymentName, types.StrategicMergePatchType, []byte(spec), metav1.PatchOptions{})
+		if err != nil {
+			return err
+		}
+		return nil
+
+	} else if kind == "ReplicaSet" {
+		rs, err := kh.K8sClient.AppsV1().ReplicaSets(namespaceName).Get(context.Background(), deploymentName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		replicas := *rs.Spec.Replicas
+		_, err = kh.K8sClient.AppsV1().ReplicaSets(namespaceName).Patch(context.Background(), deploymentName, types.MergePatchType, []byte(spec), metav1.PatchOptions{})
+		if err != nil {
+			return err
+		}
+
+		// To update the annotations we need to restart the replicaset,we scale it down and scale it back up
+		patchData := []byte(fmt.Sprintf(`{"spec": {"replicas": 0}}`))
+		_, err = kh.K8sClient.AppsV1().ReplicaSets(namespaceName).Patch(context.Background(), deploymentName, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
+		if err != nil {
+			return err
+		}
+		time.Sleep(2 * time.Second)
+		patchData2 := []byte(fmt.Sprintf(`{"spec": {"replicas": %d}}`, replicas))
+		_, err = kh.K8sClient.AppsV1().ReplicaSets(namespaceName).Patch(context.Background(), deploymentName, types.StrategicMergePatchType, patchData2, metav1.PatchOptions{})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	} else if kind == "DaemonSet" {
+		_, err := kh.K8sClient.AppsV1().DaemonSets(namespaceName).Patch(context.Background(), deploymentName, types.StrategicMergePatchType, []byte(spec), metav1.PatchOptions{})
+		if err != nil {
+			return err
+		}
+		return nil
+
+	}
 
 	_, err := kh.K8sClient.AppsV1().Deployments(namespaceName).Patch(context.Background(), deploymentName, types.StrategicMergePatchType, []byte(spec), metav1.PatchOptions{})
 	if err != nil {
