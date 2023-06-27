@@ -551,13 +551,14 @@ func (dm *KubeArmorDaemon) WatchK8sPods() {
 					if ownerRef.Kind == "ReplicaSet" {
 						deploymentName, deploymentNamespace := K8s.GetDeploymentNameControllingReplicaSet(pod.Metadata["namespaceName"], podOwnerName)
 						if deploymentName != "" {
-							pod.Metadata["deploymentName"] = deploymentName
-							pod.Metadata["owner.controllerName"] = deploymentName
+							pod.Metadata["deploymentName"] = ownerRef.Name
+							pod.Metadata["owner.controllerName"] = ownerRef.Name
 							pod.Metadata["owner.controller"] = "Deployment"
 							pod.Metadata["owner.namespace"] = deploymentNamespace
 						} else {
 							replicaSetName, replicaSetNamespace := K8s.GetReplicaSet(pod.Metadata["namespaceName"], podOwnerName)
 							if replicaSetName != "" {
+								pod.Metadata["deploymentName"] = ownerRef.Name
 								pod.Metadata["owner.controllerName"] = replicaSetName
 								pod.Metadata["owner.namespace"] = replicaSetNamespace
 							}
@@ -567,16 +568,21 @@ func (dm *KubeArmorDaemon) WatchK8sPods() {
 					} else if ownerRef.Kind == "DaemonSet" {
 						daemonSetName, daemonSetNamespace := K8s.GetDaemonSet(pod.Metadata["namespaceName"], podOwnerName)
 						if daemonSetName != "" {
+							pod.Metadata["deploymentName"] = ownerRef.Name
 							pod.Metadata["owner.controllerName"] = daemonSetName
 							pod.Metadata["owner.namespace"] = daemonSetNamespace
+
 						}
 					} else if ownerRef.Kind == "StatefulSet" {
 						statefulSetName, statefulSetNamespace := K8s.GetStatefulSet(pod.Metadata["namespaceName"], podOwnerName)
 						if statefulSetName != "" {
+							pod.Metadata["deploymentName"] = ownerRef.Name
 							pod.Metadata["owner.controllerName"] = statefulSetName
 							pod.Metadata["owner.namespace"] = statefulSetNamespace
+
 						}
 					} else if ownerRef.Kind == "Pod" {
+						pod.Metadata["deploymentName"] = ownerRef.Name
 						pod.Metadata["owner.controllerName"] = ownerRef.Name
 						pod.Metadata["owner.namespace"] = pod.Metadata["namespaceName"]
 					}
@@ -711,11 +717,21 @@ func (dm *KubeArmorDaemon) WatchK8sPods() {
 									}
 								}
 							} else if ownerRef.Kind == "ReplicaSet" {
-								replica, err := K8s.K8sClient.AppsV1().ReplicaSets(pod.Metadata["namespaceName"]).Get(context.Background(), deploymentName, metav1.GetOptions{})
-								if err == nil {
-									for _, c := range replica.Spec.Template.Spec.Containers {
-										containers = append(containers, c.Name)
+								if pod.Metadata["owner.controller"] == "Deployment" {
+									deploy, err := K8s.K8sClient.AppsV1().Deployments(pod.Metadata["namespaceName"]).Get(context.Background(), deploymentName, metav1.GetOptions{})
+									if err == nil {
+										for _, c := range deploy.Spec.Template.Spec.Containers {
+											containers = append(containers, c.Name)
+										}
 									}
+								} else {
+									replica, err := K8s.K8sClient.AppsV1().ReplicaSets(pod.Metadata["namespaceName"]).Get(context.Background(), deploymentName, metav1.GetOptions{})
+									if err == nil {
+										for _, c := range replica.Spec.Template.Spec.Containers {
+											containers = append(containers, c.Name)
+										}
+									}
+
 								}
 							} else if ownerRef.Kind == "DaemonSet" {
 								daemon, err := K8s.K8sClient.AppsV1().DaemonSets(pod.Metadata["namespaceName"]).Get(context.Background(), deploymentName, metav1.GetOptions{})
@@ -724,15 +740,8 @@ func (dm *KubeArmorDaemon) WatchK8sPods() {
 										containers = append(containers, c.Name)
 									}
 								}
-
-							} else {
-								deploy, err := K8s.K8sClient.AppsV1().Deployments(pod.Metadata["namespaceName"]).Get(context.Background(), deploymentName, metav1.GetOptions{})
-								if err == nil {
-									for _, c := range deploy.Spec.Template.Spec.Containers {
-										containers = append(containers, c.Name)
-									}
-								}
 							}
+
 						} else {
 							deploy, err := K8s.K8sClient.AppsV1().Deployments(pod.Metadata["namespaceName"]).Get(context.Background(), deploymentName, metav1.GetOptions{})
 							if err == nil {
@@ -740,8 +749,8 @@ func (dm *KubeArmorDaemon) WatchK8sPods() {
 									containers = append(containers, c.Name)
 								}
 							}
-
 						}
+
 					}
 
 					for k, v := range pod.Annotations {
@@ -770,7 +779,7 @@ func (dm *KubeArmorDaemon) WatchK8sPods() {
 						if updateAppArmor && pod.Annotations["kubearmor-policy"] == "enabled" {
 							if deploymentName, ok := pod.Metadata["deploymentName"]; ok {
 								// patch the deployment with apparmor annotations
-								if err := K8s.PatchResourceWithAppArmorAnnotations(pod.Metadata["namespaceName"], deploymentName, appArmorAnnotations, ownerRef.Kind); err != nil {
+								if err := K8s.PatchResourceWithAppArmorAnnotations(pod.Metadata["namespaceName"], deploymentName, appArmorAnnotations, pod.Metadata["owner.controller"]); err != nil {
 									dm.Logger.Errf("Failed to update AppArmor Annotations (%s/%s/%s, %s)", pod.Metadata["namespaceName"], deploymentName, pod.Metadata["podName"], err.Error())
 								} else {
 									dm.Logger.Printf("Patched AppArmor Annotations (%s/%s/%s)", pod.Metadata["namespaceName"], deploymentName, pod.Metadata["podName"])
@@ -790,7 +799,7 @@ func (dm *KubeArmorDaemon) WatchK8sPods() {
 								if updateAppArmor && prevPolicyEnabled != "enabled" && pod.Annotations["kubearmor-policy"] == "enabled" {
 									if deploymentName, ok := pod.Metadata["deploymentName"]; ok {
 										// patch the deployment with apparmor annotations
-										if err := K8s.PatchResourceWithAppArmorAnnotations(pod.Metadata["namespaceName"], deploymentName, appArmorAnnotations, ownerRef.Kind); err != nil {
+										if err := K8s.PatchResourceWithAppArmorAnnotations(pod.Metadata["namespaceName"], deploymentName, appArmorAnnotations, pod.Metadata["owner.controller"]); err != nil {
 											dm.Logger.Errf("Failed to update AppArmor Annotations (%s/%s/%s, %s)", pod.Metadata["namespaceName"], deploymentName, pod.Metadata["podName"], err.Error())
 										} else {
 											dm.Logger.Printf("Patched AppArmor Annotations (%s/%s/%s)", pod.Metadata["namespaceName"], deploymentName, pod.Metadata["podName"])
