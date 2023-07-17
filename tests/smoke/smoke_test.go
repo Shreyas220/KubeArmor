@@ -59,6 +59,40 @@ var _ = Describe("Smoke", func() {
 	})
 
 	Describe("Policy Apply", func() {
+		It("can annotate pre existing pod", func() {
+			// ReplicaSet
+			rspod, err := K8sGetPods("nginx-replicaset", "default", []string{"kubearmor-policy: enabled"}, 60)
+			Expect(err).To(BeNil())
+			err = KarmorLogStart("all", "nginx-replicaset", "", rspod[0])
+			Expect(err).To(BeNil())
+
+			sout, _, err := K8sExecInPod(rspod[0], "nginx-replicaset", []string{"ls"})
+			Expect(err).To(BeNil())
+			fmt.Printf("---START---\n%s---END---\n", sout)
+
+			// check audit logs
+			logs, _, err := KarmorGetLogs(5*time.Second, 50)
+			Expect(err).To(BeNil())
+			Expect(len(logs)).NotTo(Equal(0))
+
+			// StatefulSet
+			sspod, err := K8sGetPods("nginx-statefulset", "default", []string{"kubearmor-policy: enabled"}, 60)
+			Expect(err).To(BeNil())
+			Expect(err).To(BeNil())
+			err = KarmorLogStart("all", "nginx-statefulset", "", sspod[0])
+			Expect(err).To(BeNil())
+
+			sout, _, err = K8sExecInPod(sspod[0], "nginx-statefulset", []string{"ls"})
+			Expect(err).To(BeNil())
+			fmt.Printf("---START---\n%s---END---\n", sout)
+
+			// check audit logs
+			logs, _, err = KarmorGetLogs(5*time.Second, 50)
+			Expect(err).To(BeNil())
+			Expect(len(logs)).NotTo(Equal(0))
+
+		})
+
 		It("can block execution of pkg mgmt tools such as apt, apt-get", func() {
 			// Apply policy
 			err := K8sApplyFile("res/ksp-wordpress-block-process.yaml")

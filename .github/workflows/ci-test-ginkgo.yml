@@ -49,6 +49,11 @@ jobs:
         run: |
           GITHUB_SHA=$GITHUB_SHA ./KubeArmor/build/build_kubearmor.sh
 
+      - name: deploy pre existing pod 
+        run: |
+          kubectl apply -f ./tests/smoke/pre-run-pod.yaml
+          kubectl wait --for=condition=ready --timeout=2m pod -l test-nginx
+
       - name: Run KubeArmor
         run: |
           if [ ${{ matrix.runtime }} == "containerd" ]; then
