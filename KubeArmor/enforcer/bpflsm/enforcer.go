@@ -307,7 +307,7 @@ func (be *BPFEnforcer) TraceEvents() {
 		containerID := ""
 
 		if event.PidID != 0 && event.MntID != 0 {
-			containerID = be.Monitor.LookupContainerID(event.PidID, event.MntID, event.HostPPID, event.HostPID)
+			containerID = be.Monitor.LookupContainerID(event.PidID, event.MntID)
 		}
 
 		log := be.Monitor.BuildLogBase(event.EventID, mon.ContextCombined{
