@@ -2,7 +2,7 @@ module github.com/kubearmor/KubeArmor/KubeArmor
 
 go 1.21
 
-toolchain go1.21.3
+toolchain go1.21.8
 
 replace (
 	github.com/kubearmor/KubeArmor => ../../
@@ -40,7 +40,7 @@ require (
 	golang.org/x/exp v0.0.0-20240110193028-0dcbfd608b1e
 	golang.org/x/sys v0.16.0
 	google.golang.org/grpc v1.61.0
-	google.golang.org/protobuf v1.32.0
+	google.golang.org/protobuf v1.33.0
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
 	k8s.io/client-go v0.29.0
