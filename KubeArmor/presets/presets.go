@@ -31,7 +31,7 @@ func (p *Preset) UnregisterContainer(containerID string) {
 	}
 }
 
-// UpdateSecurityPolicies Function
+// UpdateSecurityPolicies Functionwo
 func (p *Preset) UpdateSecurityPolicies(endPoint tp.EndPoint) {
 	for _, v := range p.List {
 		v.UpdateSecurityPolicies(endPoint)

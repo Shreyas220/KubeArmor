@@ -25,6 +25,30 @@ char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
 enum file_hook_type { dpath = 0, dfileread, dfilewrite };
 
+struct sockets_key {
+	__u32 netns;
+	__u32 saddr;
+    __u32 daddr;
+    __u16 sport;
+    __u16 dport;
+
+};
+
+struct socket_value {
+    __u8 task[TASK_COMM_LEN]; 
+    __u64 pid_tgid;
+	__u64 uid_gid;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+	__uint(key_size, sizeof(struct sockets_key));
+	__uint(value_size, sizeof(struct socket_value));
+    __uint(max_entries, 128);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+} dns_shared_map SEC(".maps");
+
+
 enum deny_by_default {
   dproc = 101,
   dfile,

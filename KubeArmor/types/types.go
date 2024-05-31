@@ -32,7 +32,7 @@ type Container struct {
 	Privileged      bool   `json:"privileged"`
 
 	// == //
-
+	Pid   int    `json:"pid"`
 	PidNS uint32 `json:"pidns"`
 	MntNS uint32 `json:"mntns"`
 
@@ -533,6 +533,7 @@ type SecuritySpec struct {
 
 // SecurityPolicy Structure
 type SecurityPolicy struct {
+	// modify to add presets
 	Metadata map[string]string `json:"metadata"`
 	Spec     SecuritySpec      `json:"spec"`
 }

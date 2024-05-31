@@ -12,6 +12,7 @@ import (
 
 	cle "github.com/cilium/ebpf"
 
+	"github.com/kubearmor/KubeArmor/KubeArmor/presets/dns"
 	probe "github.com/kubearmor/KubeArmor/KubeArmor/utils/bpflsmprobe"
 
 	kl "github.com/kubearmor/KubeArmor/KubeArmor/common"
@@ -38,6 +39,9 @@ type RuntimeEnforcer struct {
 
 	// LSM - SELinux
 	seLinuxEnforcer *SELinuxEnforcer
+
+	//DNS
+	dns *dns.Dnspreset
 }
 
 // selectLsm Function
@@ -176,15 +180,22 @@ probeBPFLSM:
 }
 
 // RegisterContainer registers container identifiers to BPFEnforcer Map
-func (re *RuntimeEnforcer) RegisterContainer(containerID string, pidns, mntns uint32) {
+func (re *RuntimeEnforcer) RegisterContainer(containerId string, container tp.Container) {
 	// skip if runtime enforcer is not active
 	if re == nil {
 		return
 	}
 
 	if re.EnforcerType == "BPFLSM" {
-		re.bpfEnforcer.AddContainerIDToMap(containerID, pidns, mntns)
+		re.bpfEnforcer.AddContainerIDToMap(containerId, container.PidNS, container.MntNS)
 	}
+
+	//if preset available
+	//add containerid to dns map placeholder until we have a check for preset
+	if re.EnforcerType == "DNS" {
+		re.dns.RegisterContainer(container)
+	}
+
 }
 
 // UnregisterContainer removes container identifiers from BPFEnforcer Map
@@ -234,6 +245,11 @@ func (re *RuntimeEnforcer) UpdateSecurityPolicies(endPoint tp.EndPoint) {
 		re.bpfEnforcer.UpdateSecurityPolicies(endPoint)
 	} else if re.EnforcerType == "AppArmor" {
 		re.appArmorEnforcer.UpdateSecurityPolicies(endPoint)
+	}
+	// if present enabled
+
+	if re.EnforcerType == "DNS" {
+		re.dns.UpdateSecurityPolicies(endPoint)
 	}
 }
 

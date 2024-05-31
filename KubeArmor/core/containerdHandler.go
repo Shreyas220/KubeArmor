@@ -192,6 +192,7 @@ func (ch *ContainerdHandler) GetContainerInfo(ctx context.Context, containerID s
 		}
 
 		pid := strconv.Itoa(int(taskRes.Processes[0].Pid))
+		container.Pid = int(taskRes.Processes[0].Pid)
 
 		if data, err := os.Readlink("/proc/" + pid + "/ns/pid"); err == nil {
 			if _, err := fmt.Sscanf(data, "pid:[%d]\n", &container.PidNS); err != nil {
@@ -458,7 +459,7 @@ func (dm *KubeArmorDaemon) UpdateContainerdContainer(ctx context.Context, contai
 		if dm.SystemMonitor != nil && cfg.GlobalCfg.Policy {
 			// update NsMap
 			dm.SystemMonitor.AddContainerIDToNsMap(containerID, container.NamespaceName, container.PidNS, container.MntNS)
-			dm.RuntimeEnforcer.RegisterContainer(containerID, container.PidNS, container.MntNS)
+			dm.RuntimeEnforcer.RegisterContainer(containerID, container)
 
 			if len(endPoint.SecurityPolicies) > 0 { // struct can be empty or no policies registered for the endPoint yet
 				dm.Logger.UpdateSecurityPolicies("ADDED", endPoint)

@@ -128,6 +128,7 @@ func (ch *CrioHandler) GetContainerInfo(ctx context.Context, containerID string,
 	container.Privileged = containerInfo.Privileged
 
 	pid := strconv.Itoa(containerInfo.Pid)
+	container.Pid = containerInfo.Pid
 
 	if data, err := os.Readlink("/proc/" + pid + "/ns/pid"); err == nil {
 		if _, err := fmt.Sscanf(data, "pid:[%d]\n", &container.PidNS); err != nil {
@@ -267,7 +268,7 @@ func (dm *KubeArmorDaemon) UpdateCrioContainer(ctx context.Context, containerID,
 		if dm.SystemMonitor != nil && cfg.GlobalCfg.Policy {
 			// update NsMap
 			dm.SystemMonitor.AddContainerIDToNsMap(containerID, container.NamespaceName, container.PidNS, container.MntNS)
-			dm.RuntimeEnforcer.RegisterContainer(containerID, container.PidNS, container.MntNS)
+			dm.RuntimeEnforcer.RegisterContainer(containerID, container)
 
 			if len(endpoint.SecurityPolicies) > 0 { // struct can be empty or no policies registered for the endpoint yet
 				dm.Logger.UpdateSecurityPolicies("ADDED", endpoint)

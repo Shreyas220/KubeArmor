@@ -143,7 +143,7 @@ func (dh *DockerHandler) GetContainerInfo(containerID string, OwnerInfo map[stri
 	// == //
 
 	pid := strconv.Itoa(inspect.State.Pid)
-
+	container.Pid = inspect.State.Pid
 	if data, err := os.Readlink("/proc/" + pid + "/ns/pid"); err == nil {
 		if _, err := fmt.Sscanf(data, "pid:[%d]\n", &container.PidNS); err != nil {
 			kg.Warnf("Unable to get PidNS (%s, %s, %s)", containerID, pid, err.Error())
@@ -423,7 +423,7 @@ func (dm *KubeArmorDaemon) GetAlreadyDeployedDockerContainers() {
 				if dm.SystemMonitor != nil && cfg.GlobalCfg.Policy {
 					// update NsMap
 					dm.SystemMonitor.AddContainerIDToNsMap(container.ContainerID, container.NamespaceName, container.PidNS, container.MntNS)
-					dm.RuntimeEnforcer.RegisterContainer(container.ContainerID, container.PidNS, container.MntNS)
+					dm.RuntimeEnforcer.RegisterContainer(container.ContainerID, container)
 
 					if len(endPoint.SecurityPolicies) > 0 { // struct can be empty or no policies registered for the endpoint yet
 						dm.Logger.UpdateSecurityPolicies("ADDED", endPoint)
@@ -602,7 +602,7 @@ func (dm *KubeArmorDaemon) UpdateDockerContainer(containerID, action string) {
 		if dm.SystemMonitor != nil && cfg.GlobalCfg.Policy {
 			// update NsMap
 			dm.SystemMonitor.AddContainerIDToNsMap(containerID, container.NamespaceName, container.PidNS, container.MntNS)
-			dm.RuntimeEnforcer.RegisterContainer(containerID, container.PidNS, container.MntNS)
+			dm.RuntimeEnforcer.RegisterContainer(containerID, container)
 
 			if len(endPoint.SecurityPolicies) > 0 { // struct can be empty or no policies registered for the endpoint yet
 				dm.Logger.UpdateSecurityPolicies("ADDED", endPoint)
